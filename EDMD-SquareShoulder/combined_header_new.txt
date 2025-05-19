@@ -1,0 +1,959 @@
+#ifndef SIMULATION_HOOKS_H
+#define SIMULATION_HOOKS_H
+
+#include "core/sim_context.h"
+
+// Define the simulation hooks structure
+typedef struct SimulationHooks {
+    void (*log_error)(const char* fmt, ...);
+    void (*log_warning)(const char* fmt, ...);
+    void (*log_info)(const char* fmt, ...);
+    void (*validate_collision)(SimContext* ctx, Event* ev);
+} SimulationHooks;
+
+// Function to create default validation hooks
+SimulationHooks create_default_validation_hooks();
+
+#endif // SIMULATION_HOOKS_H
+#ifndef LAMMPS_LOADER_H
+#define LAMMPS_LOADER_H
+
+#include "../core/sim_context.h"
+
+// Change the return type to int for error reporting
+int load_lammps_data(SimContext* ctx, const char* path);
+
+#endif // LAMMPS_LOADER_H
+#ifndef LOGGER_H
+#define LOGGER_H
+
+#include "../core/sim_context.h" // For SimContext, Event
+
+// Initializes the logger. May open files or set up logging parameters.
+// rank is for potential MPI integration, pass 0 for serial.
+void init_logger(SimContext *ctx, const char *log_filename_base, int rank);
+
+// Logs a specific event.
+void log_event(SimContext *ctx, Event *event);
+
+// Logs overall system statistics (e.g., energy, momentum, event counts).
+void log_system_stats(SimContext *ctx);
+
+// Closes any open log files and cleans up logger resources.
+void close_logger(SimContext *ctx);
+
+#endif // LOGGER_H
+#pragma once
+#include "../core/sim_context.h"
+
+int load_particles(SimContext* ctx, const char* filename);
+// void load_lammps_data(SimContext* ctx, const char* path);
+#pragma once
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Saves the current simulation state to a compressed file
+ * 
+ * @param ctx Simulation context to save
+ * @param path Path to the output file
+ */
+void save_snapshot(SimContext* ctx, const char* path);
+
+/**
+ * @brief Loads a simulation state from a compressed file
+ * 
+ * @param ctx Simulation context to load into
+ * @param path Path to the input file
+ */
+void load_snapshot(SimContext* ctx, const char* path);
+
+/**
+ * @brief Exports the current particle positions to an XYZ format file
+ * 
+ * @param ctx Simulation context to export
+ * @param path Path to the output XYZ file
+ */
+void export_xyz_frame(SimContext* ctx, const char* path);
+
+/**
+ * @brief Detects the file format of a given file
+ * 
+ * @param filename Name of the file whose format is to be detected
+ * @return int Integer representing the file format
+ */
+int detect_file_format(const char* filename);
+
+/**
+ * @brief Enum for different snapshot formats
+ * 
+ */
+typedef enum {
+    SNAPSHOT_FORMAT_XYZ,
+    SNAPSHOT_FORMAT_EDMD,
+    SNAPSHOT_FORMAT_LAMMPS,
+    SNAPSHOT_FORMAT_POSSPECIAL // For pos.txt
+} SnapshotFormat;
+#ifndef BENCHMARK_H
+#define BENCHMARK_H
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Structure to store benchmark statistics
+ */
+typedef struct {
+    long event_count;          // Total number of events processed
+    long collision_count;      // Number of collision events
+    long shoulder_entry_count; // Number of shoulder entry events
+    long shoulder_exit_count;  // Number of shoulder exit events
+    long cell_crossing_count;  // Number of cell crossing events
+    long paul_hits;            // Number of events found in Paul list
+    long bst_hits;             // Number of events found in BST
+    double simulation_time;    // Total simulation time (in simulation units)
+    double wall_time;          // Total wall clock time (in seconds)
+    double cpu_time;           // Total CPU time (in seconds)
+    long max_memory;           // Maximum memory usage (in kilobytes)
+} BenchmarkStats;
+
+/**
+ * @brief Initializes the benchmark statistics
+ * 
+ * @param stats Pointer to the benchmark statistics structure
+ */
+void init_benchmark_stats(BenchmarkStats* stats);
+
+/**
+ * @brief Updates statistics when an event is processed
+ * 
+ * @param ctx Pointer to the simulation context
+ * @param stats Pointer to the benchmark statistics structure
+ * @param event Pointer to the event being processed
+ * @param from_paul_list Flag indicating if the event came from the Paul list
+ */
+void update_event_stats(SimContext* ctx, BenchmarkStats* stats, Event* event, int from_paul_list);
+
+/**
+ * @brief Runs a benchmark simulation and collects performance metrics
+ * 
+ * @param ctx Pointer to the simulation context
+ * @return BenchmarkStats structure with the benchmark results
+ */
+BenchmarkStats run_benchmark(SimContext* ctx);
+
+/**
+ * @brief Prints the benchmark statistics
+ * 
+ * @param stats Pointer to the benchmark statistics structure
+ */
+void print_benchmark_stats(BenchmarkStats* stats);
+
+#endif // BENCHMARK_H
+#ifndef EVENT_PROCESSING_H
+#define EVENT_PROCESSING_H
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Processes an event from the event queue
+ * 
+ * This function dispatches the event to the appropriate handler based on the event type.
+ * 
+ * @param ctx Pointer to the simulation context
+ * @param ev Pointer to the event to process
+ */
+void process_event(SimContext* ctx, Event* ev);
+
+#endif // EVENT_PROCESSING_H
+#ifndef CELL_INTERACTIONS_H
+#define CELL_INTERACTIONS_H
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Predicts cell crossing events for a particle.
+ *
+ * Calculates when a particle will cross each boundary of its current cell
+ * and schedules corresponding events: EVENT_CELL_CROSS_X_POS, EVENT_CELL_CROSS_X_NEG,
+ * EVENT_CELL_CROSS_Y_POS, or EVENT_CELL_CROSS_Y_NEG.
+ *
+ * @param ctx The simulation context.
+ * @param p The particle for which to predict the cell crossings.
+ */
+void predict_cell_crossing(SimContext *ctx, Particle *p);
+
+/**
+ * @brief Generic handler for cell crossing events
+ * 
+ * Dispatches to the specific handler based on event type
+ * 
+ * @param ctx Simulation context
+ * @param ev Cell crossing event (must be one of the cell crossing event types)
+ */
+void handle_cell_crossing(SimContext *ctx, Event *ev);
+
+/**
+ * @brief Handles a cell crossing event in the positive X direction
+ * 
+ * @param ctx Simulation context
+ * @param p Particle crossing the cell boundary
+ */
+void handle_cell_cross_x_pos(SimContext *ctx, Particle *p);
+
+/**
+ * @brief Handles a cell crossing event in the negative X direction
+ * 
+ * @param ctx Simulation context
+ * @param p Particle crossing the cell boundary
+ */
+void handle_cell_cross_x_neg(SimContext *ctx, Particle *p);
+
+/**
+ * @brief Handles a cell crossing event in the positive Y direction
+ * 
+ * @param ctx Simulation context
+ * @param p Particle crossing the cell boundary
+ */
+void handle_cell_cross_y_pos(SimContext *ctx, Particle *p);
+
+/**
+ * @brief Handles a cell crossing event in the negative Y direction
+ * 
+ * @param ctx Simulation context
+ * @param p Particle crossing the cell boundary
+ */
+void handle_cell_cross_y_neg(SimContext *ctx, Particle *p);
+
+#endif // CELL_INTERACTIONS_H
+#pragma once
+
+#include <float.h> // For DBL_MAX
+#include "../core/sim_context.h" // For SimContext, Particle, Event types
+
+#define NEVER DBL_MAX
+
+// Function prototypes from physics module files
+
+// From collisions.c
+// Calculates the time until the next collision between two particles.
+double calculate_collision_time(SimContext *ctx, Particle *p1, Particle *p2);
+// Processes a collision event, updating particle velocities and predicting new events.
+void process_collision(SimContext *ctx, Event *event);
+
+// From shoulders.c
+// Handles a shoulder entry event, adjusts velocities, and predicts subsequent events.
+void handle_shoulder_entry(SimContext *ctx, Event *event);
+// Processes a shoulder exit event
+void process_shoulder_exit(SimContext *ctx, Event *event);
+
+// From event_prediction.c
+// Predicts all potential future events (collisions, cell crossings, shoulder entries) for a single particle.
+void predict_all_events_for_particle(SimContext* ctx, Particle* p);
+// Predicts cell crossing events for all particles.
+void predict_cell_crossing_events(SimContext* ctx);
+// Numerically stable solver for quadratic equation to find event times
+double solve_collision_time(double dx, double dy, double dvx, double dvy, double sigma_sum);
+// Calculate time until particles reach the shoulder entry boundary
+double calculate_shoulder_entry_time(SimContext *ctx, Particle *p1, Particle *p2);
+// Calculate time until particles reach the shoulder exit boundary
+double calculate_shoulder_exit_time(SimContext *ctx, Particle *p1, Particle *p2);
+#pragma once
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Advances a particle's position based on its velocity over a specified time
+ * 
+ * This function linearly extrapolates the particle's position using its current velocity
+ * for the specified time duration. It also applies periodic boundary conditions
+ * and updates the particle's cell membership.
+ * 
+ * @param ctx Pointer to the simulation context (for box size and cell updates)
+ * @param p Pointer to the particle to advance
+ * @param dt Time duration to advance
+ */
+void advance_particle_position(SimContext* ctx, Particle* p, double dt);
+#pragma once
+
+#include "../core/sim_context.h"
+
+// Forward declarations
+void predict_all_events_for_particle(SimContext* ctx, Particle* p);
+void predict_pair_events(SimContext* ctx, Particle* p1, Particle* p2);
+void predict_cell_crossing_events(SimContext* ctx);
+double calculate_shoulder_entry_time(SimContext *ctx, Particle *p1, Particle *p2);
+double calculate_shoulder_exit_time(SimContext *ctx, Particle *p1, Particle *p2);
+double solve_collision_time(double dx, double dy, double dvx, double dvy, double sigma_sum);
+#ifndef PARTICLE_INTERACTIONS_H
+#define PARTICLE_INTERACTIONS_H
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Tracks shoulder interaction states between particle pairs
+ * 
+ * @param ctx Simulation context
+ * @param p1_idx Index of first particle
+ * @param p2_idx Index of second particle
+ * @param in_shoulder Flag indicating if particles are now in shoulder interaction (1) or not (0)
+ */
+void track_shoulder_state(SimContext* ctx, int p1_idx, int p2_idx, int in_shoulder);
+
+/**
+ * @brief Invalidates all events for a particle and its interaction partners
+ * 
+ * @param ctx Simulation context
+ * @param p_idx Index of the particle whose events should be invalidated
+ */
+void invalidate_partner_events(SimContext* ctx, int p_idx);
+
+#endif // PARTICLE_INTERACTIONS_H
+#pragma once
+
+#include "../core/sim_context.h"
+
+// Forward declarations
+double calculate_collision_time(SimContext *ctx, Particle *p1, Particle *p2);
+void process_collision(SimContext *ctx, Event *event);
+#ifndef SHOULDERS_H
+#define SHOULDERS_H
+
+#include "../core/sim_context.h" // For SimContext and Event structures
+
+/**
+ * @brief Handles the consequences of two particles entering a square shoulder potential.
+ *
+ * This function is called when an EVENT_SHOULDER_ENTRY occurs.
+ * It predicts the corresponding EVENT_SHOULDER_EXIT and re-predicts other events
+ * for the involved particles.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @param event Pointer to the shoulder entry event.
+ */
+void handle_shoulder_entry(SimContext *ctx, Event *event);
+
+/**
+ * @brief Handles the consequences of two particles exiting a square shoulder potential.
+ *
+ * This function is called when an EVENT_SHOULDER_EXIT occurs.
+ * It re-predicts events for the involved particles.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @param event Pointer to the shoulder exit event.
+ */
+void process_shoulder_exit(SimContext *ctx, Event *event);
+
+#endif // SHOULDERS_H
+#ifndef CELL_LIST_H
+#define CELL_LIST_H
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Initialize cell lists for neighbor search
+ * 
+ * @param ctx Simulation context
+ * @param n_cells_x Number of cells in x dimension
+ * @param n_cells_y Number of cells in y dimension
+ */
+void init_cell_lists(SimContext* ctx, int n_cells_x, int n_cells_y);
+
+/**
+ * @brief Update a particle's cell assignment
+ * 
+ * @param ctx Simulation context
+ * @param p Particle to update
+ */
+void update_particle_cell(SimContext* ctx, Particle* p);
+
+/**
+ * @brief Update a particle's membership in the cell list data structure
+ * 
+ * @param ctx Simulation context
+ * @param p Particle to update
+ * @param old_cellx Previous cell x index
+ * @param old_celly Previous cell y index
+ */
+void update_particle_cell_membership(SimContext* ctx, Particle* p, int old_cellx, int old_celly);
+
+/**
+ * @brief Get list of particles in neighboring cells
+ * 
+ * @param ctx Simulation context
+ * @param cellx Cell x index
+ * @param celly Cell y index
+ * @param neighbors Array to store particle pointers
+ * @param max_neighbors Maximum number of neighbors to store
+ * @return int Number of neighbors found
+ */
+int get_cell_neighbors(SimContext* ctx, int cellx, int celly, Particle** neighbors, int max_neighbors);
+
+/**
+ * @brief Clear cell list data structures and free memory
+ * 
+ * @param ctx Simulation context
+ */
+void free_cell_lists(SimContext* ctx);
+
+#endif // CELL_LIST_H
+#ifndef PBC_H
+#define PBC_H
+
+#include <math.h>
+
+/**
+ * Apply periodic boundary condition wrapping to a coordinate difference.
+ * @param x Difference in coordinate.
+ * @param box Box length.
+ * @return The wrapped coordinate difference.
+ */
+double pbc(double x, double box);
+#define PBC pbc  // Create a macro for backward compatibility
+
+/**
+ * Same as pbc but with a clearer name for validation code.
+ * @param x Difference in coordinate.
+ * @param box Box length.
+ * @return The minimum distance considering periodic boundaries.
+ */
+static inline double pbc_distance(double x, double box) {
+    return pbc(x, box);
+}
+
+/**
+ * Wrap a position (x,y) into the periodic box.
+ * @param x Pointer to x coordinate.
+ * @param y Pointer to y coordinate.
+ * @param boxx Box length in x.
+ * @param boxy Box length in y.
+ */
+void pbc_wrap_position(double* x, double* y, double boxx, double boxy);
+
+/**
+ * Calculate minimum image distance between two points.
+ * @param v1 First coordinate.
+ * @param v2 Second coordinate.
+ * @param L Box length.
+ * @return Minimum image displacement.
+ */
+double pbc_min_image_delta(double v1, double v2, double L);
+
+/**
+ * Minimum image convention for a coordinate difference (dx,dy).
+ * @param dx Pointer to x difference.
+ * @param dy Pointer to y difference.
+ * @param boxx Box length in x.
+ * @param boxy Box length in y.
+ */
+void pbc_apply_min_image(double* dx, double* dy, double boxx, double boxy);
+
+#endif // PBC_H
+#ifndef VELOCITY_INIT_H
+#define VELOCITY_INIT_H
+#include "../core/sim_context.h"
+/**
+ * Initializes particle velocities from a uniform distribution with zero COM velocity.
+ * Assigns random vx and vy components to each particle, drawn from a uniform
+ * distribution between -max_abs_velocity_component and +max_abs_velocity_component.
+ * After initial assignment, the velocities are adjusted so that the center of mass
+ * velocity of the entire system is zero.
+ *
+ * @param ctx Pointer to the simulation context, containing particles and their properties.
+ * @param max_abs_velocity_component The maximum absolute value for each velocity component (vx, vy).
+ */
+void initialize_particle_velocities(SimContext* ctx, double max_abs_velocity_component);
+#endif
+#pragma once
+#include "core/sim_context.h"
+#include "physics/physics.h"
+
+double solve_collision_time(double dx, double dy, double dvx, double dvy, double sigma_sum);
+double calculate_shoulder_entry_time(SimContext *ctx, Particle *p1, Particle *p2);
+double calculate_shoulder_exit_time(SimContext *ctx, Particle *p1, Particle *p2);
+void predict_cell_crossing_events(SimContext* ctx);
+#ifndef PARTICLE_POOL_H
+#define PARTICLE_POOL_H
+
+#include "sim_context.h" // For Event and SimContext (specifically event_pool and free_event_list)
+
+/**
+ * @brief Initializes the event pool and free list within the SimContext.
+ *
+ * This function is typically called by init_sim_context.
+ * It pre-allocates a block of Event structures and links them into a free list.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @param pool_size The number of Event objects to pre-allocate in the pool.
+ * @return 0 on success, -1 on failure (e.g., memory allocation failed).
+ */
+int init_event_pool(SimContext *ctx, int pool_size);
+
+/**
+ * @brief Allocates an Event object from the SimContext's event pool.
+ *
+ * Retrieves an event from the free list. If the free list is empty,
+ * it may attempt to expand the pool (not implemented here) or return NULL.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @return Pointer to an allocated Event, or NULL if the pool is exhausted.
+ */
+Event* allocate_event_from_pool(SimContext *ctx);
+
+/**
+ * @brief Releases an Event object back to the SimContext's event pool.
+ *
+ * Adds the event to the head of the free list, making it available for reuse.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @param event Pointer to the Event object to release.
+ */
+void release_event_to_pool(SimContext *ctx, Event *event);
+
+/**
+ * @brief Frees the memory allocated for the event pool in SimContext.
+ *
+ * This function is typically called by free_sim_context.
+ *
+ * @param ctx Pointer to the simulation context.
+ */
+void free_event_pool(SimContext *ctx);
+
+
+#endif // PARTICLE_POOL_H
+#pragma once
+#include <stddef.h> // For size_t
+#include <stdio.h>  // For FILE
+
+// Particle structure definition
+typedef struct Particle {
+    double x, y;           // Position
+    double vx, vy;         // Velocity
+    double radius;         // Core radius
+    double radius_sq;      // Precomputed radius squared for collisions
+    double m;              // Mass
+    int id;                // Particle ID
+    int type;              // Particle type (for LAMMPS compatibility)
+    int cellx, celly;      // Current cell indices
+    unsigned long coll;    // Collision counter
+    int active;            // 1 if active, 0 if in pool
+    int in_shoulder;       // Flag if particle is in a shoulder potential with another
+    int shoulder_partner_idx; // Index of the particle it's in a shoulder interaction with, -1 if none
+    struct Particle* next_in_cell; // For cell list linked list
+} Particle;
+
+// Event types enumeration
+typedef enum {
+    EVENT_NONE, // Should be 0 for default/uninitialized
+    EVENT_COLLISION,
+    EVENT_SHOULDER_ENTRY, // Renamed from EVENT_SHOULDER for clarity
+    EVENT_SHOULDER_EXIT,  // Added for explicit shoulder exit
+    EVENT_CELL_CROSS_X_POS, // Cell crossing in positive X direction
+    EVENT_CELL_CROSS_X_NEG, // Cell crossing in negative X direction
+    EVENT_CELL_CROSS_Y_POS, // Cell crossing in positive Y direction
+    EVENT_CELL_CROSS_Y_NEG, // Cell crossing in negative Y direction
+    EVENT_INVALID // To mark events that should be ignored/removed
+} EventType;
+
+// Event structure definition
+typedef struct Event {
+    double time;           // Absolute simulation time of the event
+    EventType type;        // Type of the event
+    int p1_idx;            // Index of first particle
+    int p2_idx;            // Index of second particle (if applicable)
+    int cross_dir;         // 0: X+, 1: X-, 2: Y+, 3: Y- (for cell crossing events)
+
+    // BST pointers
+    struct Event *left, *right, *parent;
+    
+    // Paul list / free list pointers
+    struct Event *next;               // Used for free list linkage
+    struct Event *next_event_in_paul_bin; // Pointer to next event in same Paul bin
+    struct Event *prev_in_bin;        // Pointer to previous event in Paul bin
+    int assigned_paul_bin;            // Index of Paul bin this event belongs to (-1 if not in Paul)
+    int is_in_bst;                   // Flag indicating if the event is in the BST
+} Event;
+
+// Cell structure for cell lists
+typedef struct Cell {
+    struct Particle *head;   // Linked list of particles in cell
+} Cell;
+
+// Main simulation context structure
+typedef struct SimContext {
+    // Particle system
+    Particle *particles;
+    int num_particles;
+    double xsize, ysize;   // Simulation box dimensions
+
+    // Event system
+    struct {
+        Event** paul_lists;          // Array of Paul list heads
+        int paul_list_size;          // Number of Paul list bins
+        int current_paul_bin;        // Current Paul bin index
+        double paul_dt;              // Time width per Paul bin
+        double paul_list_window_start_time; // Start time for current Paul window
+        Event* event_tree_root;      // BST root
+    } event_system;
+    
+    // Memory pools
+    Event *event_pool_storage;       // Preallocated event pool
+    int event_pool_size;
+    Event *free_event_list;          // Linked list of free events
+    
+    // Physics parameters
+    double current_time;             // Current simulation time
+    struct { 
+        double U;                    // Square shoulder height
+        double sigma;                // Core diameter
+        double lambda_shoulder;      // Shoulder width factor
+        double deltaE;               // Energy injection per collision
+        double default_particle_radius; // Default radius for new particles
+        double default_particle_mass;   // Default mass for new particles
+    } params;
+
+    // Cell lists
+    Cell **cells;                    // 2D array of cells
+    int n_cells_x, n_cells_y;        // Number of cells in each dimension
+    double cell_size;                // Width/height of cells (assuming square)
+    
+    // Energy tracking
+    struct {
+        double tracked;              // Current tracked energy
+        double tolerance;            // Tolerance for energy conservation checks
+    } energy;
+    
+    // Validation and I/O
+    FILE *log_file;
+    int log_verbosity;
+    
+    // Validation hooks
+    struct {
+        void (*validate_collision)(struct SimContext*, Event*);
+        void (*log_error)(const char* fmt, ...);
+        void (*log_warning)(const char* fmt, ...);
+        void (*log_info)(const char* fmt, ...);
+        void (*on_cell_crossing)(struct SimContext*, Event*);
+    } hooks;
+    // Simulation control
+    double sim_end_time;             // When to end simulation
+} SimContext;
+
+// Validation hooks structure
+typedef struct ValidationHooks {
+    void (*validate_collision)(struct SimContext*, Event*);
+    void (*log_error)(const char* fmt, ...);
+    void (*log_warning)(const char* fmt, ...);
+} ValidationHooks;
+
+// Context initialization/cleanup
+void init_sim_context(SimContext *ctx, int num_particles_val, double x_size_val, double y_size_val, 
+                     double cell_size_val, int paul_list_size_val, int event_pool_sz_val);
+void free_sim_context(SimContext *ctx);
+
+// Helper for aligned allocation
+void* aligned_alloc(size_t alignment, size_t size);
+void aligned_free(void *ptr);
+#ifndef HYBRID_EVENT_SYSTEM_H
+#define HYBRID_EVENT_SYSTEM_H
+
+// Forward declare SimContext and Event to avoid circular dependencies
+// Actual definitions will be included in .c file via sim_context.h -> events.h
+struct SimContext;
+struct Event;
+
+/**
+ * @brief Schedules an event into the hybrid event system (Paul list or BST).
+ * 
+ * The decision of where to place the event (Paul list or BST) is based on the event's time
+ * relative to the Paul list's time horizon.
+ * Event's list pointers (next, prev) are nullified before scheduling.
+ * 
+ * @param ctx Pointer to the simulation context.
+ * @param event Pointer to the event to be scheduled. The event should be allocated from the event pool.
+ *              The event's time and other properties must be set before calling this function.
+ */
+void schedule_event(struct SimContext* ctx, struct Event* event);
+
+/**
+ * @brief Selectively rebuilds the event queue for only the specified particles.
+ *
+ * Instead of rebuilding the entire event queue, this function only recalculates
+ * events for the specified particles and their neighbors, significantly improving
+ * performance for localized changes.
+ *
+ * @param ctx Pointer to the simulation context
+ * @param modified_particles Array of particle indices that have been modified
+ * @param count Number of particles in the modified_particles array
+ */
+void smart_queue_rebuild(struct SimContext* ctx, int* modified_particles, int count);
+
+/**
+ * @brief Retrieves and removes the next master event (earliest event) from the hybrid system.
+ * 
+ * This function considers events from matured Paul list bins (handled by advance_paul_list), 
+ * the current Paul list bin, and the BST to find the event with the globally minimum time.
+ * Events from matured Paul list bins that are not yet due (i.e. their time > current_time despite being in an old bin) 
+ * are rescheduled. Due events from matured bins that are not the absolute earliest are also rescheduled.
+ * The returned event is removed from the event system.
+ * 
+ * @param ctx Pointer to the simulation context. The ctx->current_time should be up-to-date.
+ * @return Pointer to the next master event, or NULL if no events are pending.
+ *         The caller is responsible for processing the event and eventually releasing it
+ *         back to the event pool if it's no longer needed. The event's list pointers
+ *         (next, prev, next_in_bin, prev_in_bin) will be appropriately managed or nullified.
+ */
+struct Event* get_next_master_event(struct SimContext* ctx);
+
+/**
+ * @brief Invalidates all events related to a specific particle.
+ * 
+ * This function is used when a particle's state changes significantly (e.g., after a collision,
+ * after crossing cell boundaries) and all its future events need to be invalidated.
+ * 
+ * @param ctx Pointer to the simulation context.
+ * @param p_idx Index of the particle whose events should be invalidated.
+ */
+void invalidate_events_for_particle(struct SimContext* ctx, int p_idx);
+
+#endif // HYBRID_EVENT_SYSTEM_H
+#pragma once
+#include "../sim_context.h" // SimContext now defines Event and Particle
+
+// Event system interface
+void init_event_system(SimContext *ctx); // Initializes event pool, Paul lists, BST within SimContext
+void schedule_event(SimContext *ctx, Event *ev);
+Event *get_next_master_event(SimContext *ctx); // Use consistent name with hybrid.h
+
+// Event pool management specific functions (if not solely handled by init_event_system)
+Event* allocate_event_from_pool(SimContext *ctx);
+void release_event_to_pool(SimContext *ctx, Event *ev); // Renamed from release_event for clarity
+
+// Event creation functions
+// These now take SimContext to access event pool and current_time
+Event *create_collision_event(SimContext *ctx, Particle *p1, Particle *p2, double event_abs_time);
+Event *create_shoulder_event(SimContext *ctx, Particle *p1, Particle *p2, double event_abs_time, EventType type);
+Event *create_cell_crossing_event(SimContext *ctx, Particle *p1, double event_abs_time);
+Event *create_system_event(SimContext* ctx, double event_abs_time, EventType type);
+#ifndef PAUL_LIST_H
+#define PAUL_LIST_H
+
+#include "../sim_context.h"
+#include "events.h"
+
+/**
+ * @brief Initializes the Paul list component of the event system.
+ *
+ * Assumes that SimContext fields like num_paul_bins, paul_dt, and paul_lists array
+ * have been primarily set up by init_sim_context. This function can perform
+ * additional checks or minor setup if needed.
+ *
+ * @param ctx Pointer to the simulation context.
+ */
+void init_paul_event_system_component(SimContext *ctx);
+
+/**
+ * @brief Adds an event to a specific Paul list bin.
+ *
+ * This function is typically called by schedule_event in hybrid.c when an event
+ * is determined to fall within the Paul list time horizon and a target bin
+ * has been calculated.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @param ev Pointer to the event to be added.
+ * @param target_bin_index The pre-calculated index of the Paul list bin where the event should be placed.
+ */
+void add_to_paul(SimContext *ctx, Event *ev, int target_bin_index);
+
+/**
+ * @brief Removes an event from its Paul list bin.
+ *
+ * The event's assigned_paul_bin field is used to locate the bin.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @param ev Pointer to the event to be removed.
+ */
+void remove_from_paul(SimContext *ctx, Event *ev);
+
+/**
+ * @brief Advances the Paul list system by one time step (paul_dt).
+ *
+ * This function is called when the simulation time progresses beyond the current
+ * Paul list bin's coverage. It involves:
+ * 1. Advancing the paul_list_window_start_time.
+ * 2. Moving the current_paul_bin_idx to the next bin.
+ * 3. Taking all events from the bin that has just become "stale" (the previous
+ *    current_paul_bin_idx) and rescheduling them using schedule_event().
+ *    These events might go into new Paul list bins or the BST.
+ *
+ * @param ctx Pointer to the simulation context.
+ */
+void advance_paul_list(SimContext *ctx);
+
+/**
+ * @brief Retrieves the earliest event from the current Paul list bin.
+ *
+ * This function scans only the current active Paul bin (ctx->event_system.current_paul_bin)
+ * to find the event with the smallest time. It does not remove the event.
+ * Returns NULL if the current bin is empty.
+ *
+ * @param ctx Pointer to the simulation context.
+ * @return Pointer to the earliest event in the current Paul bin, or NULL if none.
+ */
+Event* paul_get_earliest(SimContext *ctx);
+
+#endif // PAUL_LIST_H
+#ifndef BST_QUEUE_H
+#define BST_QUEUE_H
+
+#include "../sim_context.h"
+
+/**
+ * @brief Insert an event into the BST
+ * 
+ * @param root Pointer to the root of the BST
+ * @param ev Event to insert
+ */
+void bst_insert(Event** root, Event* ev);
+
+/**
+ * @brief Get the earliest event in the BST without removing it
+ * 
+ * @param root Root of the BST
+ * @return Event* Earliest event or NULL if tree is empty
+ */
+Event* bst_get_earliest(Event* root);
+
+/**
+ * @brief Remove an event from the BST
+ * 
+ * @param root Pointer to the root of the BST
+ * @param ev Event to remove
+ */
+void bst_remove(Event** root, Event* ev);
+
+/**
+ * @brief Wrapper to remove an event from the BST within the simulation context.
+ * 
+ * @param ctx The simulation context.
+ * @param ev_to_remove The event to remove from the BST.
+ */
+void remove_event_from_bst(SimContext* ctx, Event* ev_to_remove);
+
+/**
+ * @brief Remove all events for a specific particle from the BST
+ * 
+ * @param root Pointer to the root of the BST
+ * @param p_idx Index of the particle
+ * @param free_list Pointer to the head of the free event list
+ */
+void bst_remove_events_for_particle(Event** root, int p_idx, Event** free_list);
+
+/**
+ * @brief Helper function for recursively removing events for a particle
+ * 
+ * @param root Pointer to the root of the BST
+ * @param node Current node being examined
+ * @param p_idx Index of the particle
+ * @param free_list Pointer to the head of the free event list
+ */
+void bst_remove_events_for_particle_recursive(Event** root, Event* node, int p_idx, Event** free_list);
+
+#endif // BST_QUEUE_H
+#ifndef TRAJECTORY_VALIDATION_H
+#define TRAJECTORY_VALIDATION_H
+
+#include <stdio.h>
+
+/**
+ * @brief Compares two trajectory files to check for differences
+ * 
+ * This function reads trajectory files with positions of particles at different
+ * time steps and compares them within a specified tolerance. This is useful for
+ * regression testing and validation against reference implementations.
+ * 
+ * @param ref_path Path to the reference trajectory file
+ * @param test_path Path to the test trajectory file
+ * @param tolerance Maximum allowed difference in positions (defaults to 1e-9)
+ * @return 1 if trajectories match within tolerance, 0 otherwise
+ */
+int compare_trajectories(const char* ref_path, const char* test_path, double tolerance);
+
+#endif // TRAJECTORY_VALIDATION_H
+#ifndef COLLISION_VALIDATION_H
+#define COLLISION_VALIDATION_H
+
+#include "../core/sim_context.h"
+
+/**
+ * @brief Validates a collision event to ensure numerical precision.
+ * 
+ * This function checks if the particles are actually at the correct distance
+ * for a collision, within a small epsilon tolerance. This helps detect numerical 
+ * drift that can occur in simulations.
+ * 
+ * @param ctx Pointer to the simulation context
+ * @param ev Pointer to the collision event to validate
+ * @return 1 if the collision is valid, 0 otherwise
+ */
+int validate_collision(SimContext* ctx, Event* ev);
+
+#endif // COLLISION_VALIDATION_H
+#pragma once
+
+#include "../core/sim_context.h"
+
+// Energy calculation and validation functions
+double calculate_total_energy(SimContext* ctx);
+double calculate_total_kinetic_energy(SimContext* ctx);
+void validate_energy(SimContext* ctx);
+void update_tracked_energy(SimContext* ctx);
+void track_energy_injection(SimContext* ctx, double energy_injected);
+void init_energy_tracking(SimContext* ctx);
+#pragma once
+
+#include "../core/sim_context.h"
+#include <stdio.h>
+#include "../simulation_hooks.h" // Use canonical SimulationHooks definition
+
+// Callback function types for the simulation hooks
+typedef void (*LogFunctionPtr)(const char* format, ...);
+typedef void (*EventHandlerPtr)(SimContext* ctx, Event* event);
+typedef void (*ParticleUpdateHandlerPtr)(SimContext* ctx, int particle_idx);
+
+// Function declarations
+void default_log_error(const char* format, ...);
+void validate_collision_distance(SimContext* ctx, Event* ev);
+void validate_cell_indices(SimContext* ctx);
+void validate_cell_crossing(SimContext* ctx, Event* ev);
+void validate_initial_conditions(SimContext* ctx);
+SimulationHooks create_default_validation_hooks();
+
+#ifndef VALIDATION_HOOKS_H
+#define VALIDATION_HOOKS_H
+
+#endif // VALIDATION_HOOKS_H
+#pragma once
+
+#include "../core/sim_context.h"
+
+// Validation tolerance constants
+#define COLLISION_TOL 1e-9
+#define SHOULDER_TOL 1e-8
+
+/**
+ * @brief Validates if a collision event occurs at the expected distance
+ * 
+ * @param ctx Simulation context
+ * @param ev Collision event to validate
+ * @return int 1 if valid, 0 if invalid
+ */
+int validate_collision(SimContext* ctx, Event* ev);
+
+/**
+ * @brief Validates if a shoulder event occurs at the expected distance
+ * 
+ * @param ctx Simulation context
+ * @param ev Shoulder event to validate
+ * @return int 1 if valid, 0 if invalid
+ */
+int validate_shoulder_event(SimContext* ctx, Event* ev);

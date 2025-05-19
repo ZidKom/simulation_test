@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "build",
+			"command": "gcc",
+			"args": [
+				"-g",
+				"${workspaceFolder}/mdShoulder.c",
+				"-o",
+				"${workspaceFolder}/${input:executableName}"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"inputs": [
+				{
+					"type": "promptString",
+					"id": "executableName",
+					"description": "Enter the name of the output executable (e.g., mdShoulder)"
+				}
+			]
+		}
+	]
+}

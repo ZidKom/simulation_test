@@ -1,0 +1,139 @@
+CC = gcc
+CFLAGS = -O3 -mavx2 -Wall -Wextra -fopenmp
+LDFLAGS = -lm -lz
+
+# Debug flags
+DEBUG_FLAGS = -g -DDEBUG
+
+# Validation flags
+VALIDATION_FLAGS = -DVALIDATION_MODE=1
+
+# Source directories
+CORE_DIR = core
+PHYSICS_DIR = physics
+UTILS_DIR = utils
+IO_DIR = io
+VALIDATION_DIR = validation
+TESTS_DIR = tests
+BENCHMARK_DIR = benchmark
+
+# Source files
+CORE_SRC = $(wildcard $(CORE_DIR)/*.c) $(wildcard $(CORE_DIR)/event_system/*.c)
+PHYSICS_SRC = $(wildcard $(PHYSICS_DIR)/*.c)
+UTILS_SRC = $(wildcard $(UTILS_DIR)/*.c)
+IO_SRC = $(wildcard $(IO_DIR)/*.c)
+VALIDATION_SRC = $(wildcard $(VALIDATION_DIR)/*.c)
+BENCHMARK_SRC = $(wildcard $(BENCHMARK_DIR)/*.c)
+TEST_SRC = $(wildcard $(TESTS_DIR)/*.c)
+
+# Make separate variables for direct source reference  
+SRC_CORE = $(wildcard $(CORE_DIR)/*.c)
+SRC_EVENT = $(wildcard $(CORE_DIR)/event_system/*.c)
+SRC_PHYSICS = $(wildcard $(PHYSICS_DIR)/*.c)
+SRC_UTILS = $(wildcard $(UTILS_DIR)/*.c)
+SRC_IO = $(wildcard $(IO_DIR)/*.c)
+# Only use event_prediction_new.c, not event_prediction.c
+SRC_PHYSICS = $(filter-out $(PHYSICS_DIR)/event_prediction.c, $(wildcard $(PHYSICS_DIR)/*.c))
+# Only use pbc.c, not pbc_new.c
+SRC_UTILS = $(filter-out $(UTILS_DIR)/pbc_new.c, $(wildcard $(UTILS_DIR)/*.c))
+# Only use collision_validation.c, not event_checks.c
+SRC_VALID = $(filter-out $(VALIDATION_DIR)/event_checks.c $(VALIDATION_DIR)/energy_checks.c $(VALIDATION_DIR)/energy_validation.c, $(wildcard $(VALIDATION_DIR)/*.c))
+SRC_BENCHMARK = $(wildcard $(BENCHMARK_DIR)/*.c)
+
+# Main source file
+MAIN_SRC = main.c
+HOOKS_SRC = simulation_hooks.c
+
+# Object files
+CORE_OBJ = $(SRC_CORE:.c=.o) $(SRC_EVENT:.c=.o)
+PHYSICS_OBJ = $(SRC_PHYSICS:.c=.o)
+UTILS_OBJ = $(SRC_UTILS:.c=.o)
+IO_OBJ = $(SRC_IO:.c=.o)
+VALIDATION_OBJ = $(SRC_VALID:.c=.o)
+BENCHMARK_OBJ = $(SRC_BENCHMARK:.c=.o)
+TEST_OBJ = $(TEST_SRC:.c=.o)
+MAIN_OBJ = $(MAIN_SRC:.c=.o)
+HOOKS_OBJ = $(HOOKS_SRC:.c=.o)
+SOLVE_PHYSICS_OBJ = solve_physics.o
+
+# Executable
+TARGET = edmd_sim
+# Test targets
+COLLISION_TEST = tests/collision_test
+EVENT_TEST = tests/event_test
+SHOULDER_TEST = tests/shoulder_collision_test
+VALIDATION_TESTS = tests/full_validation
+
+# Define common objects used by both main target and tests
+COMMON_OBJS = $(CORE_OBJ) $(PHYSICS_OBJ) $(UTILS_OBJ) $(IO_OBJ) $(VALIDATION_OBJ)
+
+# Default target
+all: $(TARGET)
+
+# Main executable
+$(TARGET): $(COMMON_OBJS) $(BENCHMARK_OBJ) $(MAIN_OBJ)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+# Individual test targets
+$(COLLISION_TEST): tests/collision_test.o $(COMMON_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(EVENT_TEST): tests/event_test.o $(COMMON_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(SHOULDER_TEST): tests/shoulder_collision_test.o $(COMMON_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+# Validation test
+$(VALIDATION_TESTS): tests/full_validation.o $(COMMON_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+# Run all tests
+test: $(COLLISION_TEST) $(EVENT_TEST) $(SHOULDER_TEST)
+	./$(COLLISION_TEST)
+	./$(EVENT_TEST)
+	./$(SHOULDER_TEST)
+
+.PHONY: full_test
+full_test: $(VALIDATION_TESTS)
+	./$<
+
+tests/full_validation: tests/full_validation.c
+	$(CC) $(CFLAGS) $< $(SRC_CORE) $(SRC_EVENT) $(SRC_PHYSICS) $(filter-out utils/pbc_new.c, $(SRC_UTILS)) $(SRC_IO) validation/energy_validation.c validation/hooks.c -o $@ $(LDFLAGS)
+
+# Debug build
+debug: CFLAGS += $(DEBUG_FLAGS)
+debug: all
+
+# Validation build
+validate: CFLAGS += $(VALIDATION_FLAGS)
+validate: all
+
+# Clean
+clean:
+	rm -f $(CORE_OBJ) $(PHYSICS_OBJ) $(UTILS_OBJ) $(IO_OBJ) $(VALIDATION_OBJ) $(MAIN_OBJ) $(TEST_OBJ) $(SOLVE_PHYSICS_OBJ) $(TARGET) $(COLLISION_TEST) $(EVENT_TEST) $(VALIDATION_TESTS)
+
+# Generic rule for compiling .c to .o
+DEPDIR = .deps
+df = $(DEPDIR)/$(*F)
+
+%.o: %.c
+	@mkdir -p $(DEPDIR)
+	$(CC) -MMD -MP -c $< -o $@
+
+# Dependencies
+$(CORE_OBJ): | $(CORE_DIR) $(CORE_DIR)/event_system
+$(PHYSICS_OBJ): | $(PHYSICS_DIR)
+$(UTILS_OBJ): | $(UTILS_DIR)
+$(IO_OBJ): | $(IO_DIR)
+$(VALIDATION_OBJ): | $(VALIDATION_DIR)
+$(TEST_OBJ): | $(TESTS_DIR)
+
+# Ensure directories exist
+$(CORE_DIR) $(CORE_DIR)/event_system $(PHYSICS_DIR) $(UTILS_DIR) $(IO_DIR) $(VALIDATION_DIR) $(TESTS_DIR):
+	mkdir -p $@
+
+io/particle_loader.o: io/particle_loader.c io/particle_loader.h core/sim_context.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: all test debug validate clean

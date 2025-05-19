@@ -1,0 +1,6 @@
+gcc -MMD -MP -c main.c -o main.o
+main.c: In function ‘main’:
+main.c:184:5: error: implicit declaration of function ‘validate_initial_conditions’ [-Wimplicit-function-declaration]
+  184 |     validate_initial_conditions(&ctx);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+make: *** [Makefile:105: main.o] Error 1

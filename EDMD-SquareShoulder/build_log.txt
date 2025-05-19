@@ -1,0 +1,75 @@
+gcc -MMD -MP -c physics/pair_events.c -o physics/pair_events.o
+physics/pair_events.c: In function ‘predict_pair_events’:
+physics/pair_events.c:55:54: error: ‘NEVER’ undeclared (first use in this function)
+   55 |         if (collision_time > 0.0 && collision_time < NEVER) {
+      |                                                      ^~~~~
+physics/pair_events.c:55:54: note: each undeclared identifier is reported only once for each function it appears in
+physics/pair_events.c:99:5: error: implicit declaration of function ‘return_event_to_pool’; did you mean ‘release_event_to_pool’? [-Wimplicit-function-declaration]
+   99 |     return_event_to_pool(ctx, ev);
+      |     ^~~~~~~~~~~~~~~~~~~~
+      |     release_event_to_pool
+make: *** [Makefile:109: physics/pair_events.o] Error 1
+gcc -MMD -MP -c io/lammps_loader.c -o io/lammps_loader.o
+io/lammps_loader.c: In function ‘load_lammps_data’:
+io/lammps_loader.c:43:22: error: implicit declaration of function ‘aligned_calloc’; did you mean ‘aligned_alloc’? [-Wimplicit-function-declaration]
+   43 |     ctx->particles = aligned_calloc(64, ctx->num_particles * sizeof(Particle));
+      |                      ^~~~~~~~~~~~~~
+      |                      aligned_alloc
+io/lammps_loader.c:43:20: error: assignment to ‘Particle *’ from ‘int’ makes pointer from integer without a cast [-Wint-conversion]
+   43 |     ctx->particles = aligned_calloc(64, ctx->num_particles * sizeof(Particle));
+      |                    ^
+io/lammps_loader.c:68:14: error: ‘Particle’ has no member named ‘type’
+   68 |             p->type = type;
+      |              ^~
+io/lammps_loader.c:72:14: error: ‘Particle’ has no member named ‘type’
+   72 |             p->type = type;
+      |              ^~
+io/lammps_loader.c:82:10: error: ‘Particle’ has no member named ‘mass’
+   82 |         p->mass = ctx->params.default_particle_mass;
+      |          ^~
+io/lammps_loader.c:95:19: error: ‘struct <anonymous>’ has no member named ‘log_info’
+   95 |     if (ctx->hooks.log_info) {
+      |                   ^
+io/lammps_loader.c:96:19: error: ‘struct <anonymous>’ has no member named ‘log_info’
+   96 |         ctx->hooks.log_info("Loaded %d particles from LAMMPS file: %s", ctx->num_particles, path);
+      |                   ^
+io/lammps_loader.c:97:19: error: ‘struct <anonymous>’ has no member named ‘log_info’
+   97 |         ctx->hooks.log_info("Box dimensions: %.4f x %.4f", ctx->xsize, ctx->ysize);
+      |                   ^
+make: *** [Makefile:109: io/lammps_loader.o] Error 1
+gcc -MMD -MP -c benchmark/benchmark.c -o benchmark/benchmark.o
+benchmark/benchmark.c: In function ‘update_event_stats’:
+benchmark/benchmark.c:42:14: error: ‘EVENT_CELL_CROSSING’ undeclared (first use in this function); did you mean ‘EVENT_CELL_CROSS_Y_NEG’?
+   42 |         case EVENT_CELL_CROSSING:
+      |              ^~~~~~~~~~~~~~~~~~~
+      |              EVENT_CELL_CROSS_Y_NEG
+benchmark/benchmark.c:42:14: note: each undeclared identifier is reported only once for each function it appears in
+benchmark/benchmark.c: In function ‘run_benchmark’:
+benchmark/benchmark.c:74:29: error: implicit declaration of function ‘get_next_master_event’ [-Wimplicit-function-declaration]
+   74 |         Event* next_event = get_next_master_event(ctx);
+      |                             ^~~~~~~~~~~~~~~~~~~~~
+benchmark/benchmark.c:74:29: error: initialization of ‘Event *’ from ‘int’ makes pointer from integer without a cast [-Wint-conversion]
+benchmark/benchmark.c:88:9: error: implicit declaration of function ‘process_event’ [-Wimplicit-function-declaration]
+   88 |         process_event(ctx, next_event);
+      |         ^~~~~~~~~~~~~
+make: *** [Makefile:109: benchmark/benchmark.o] Error 1
+gcc -MMD -MP -c main.c -o main.o
+main.c: In function ‘main’:
+main.c:202:13: error: duplicate case value
+  202 |             case 9: validation_freq = atol(optarg); break;
+      |             ^~~~
+main.c:198:13: note: previously used here
+  198 |             case 9: validation_freq = atol(optarg); break;
+      |             ^~~~
+main.c:255:14: error: ‘struct <anonymous>’ has no member named ‘log_info’
+  255 |     ctx.hooks.log_info = hooks.log_info;
+      |              ^
+main.c:259:38: error: assignment to ‘void (*)(struct SimContext *, Event *)’ from incompatible pointer type ‘int (*)(SimContext *, Event *)’ [-Wincompatible-pointer-types]
+  259 |         ctx.hooks.validate_collision = validate_collision;
+      |                                      ^
+In file included from main.c:45:
+validation/collision_validation.h:17:5: note: ‘validate_collision’ declared here
+   17 | int validate_collision(SimContext* ctx, Event* ev);
+      |     ^~~~~~~~~~~~~~~~~~
+make: *** [Makefile:109: main.o] Error 1
+make: Target 'all' not remade because of errors.
